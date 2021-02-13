@@ -2,5 +2,6 @@
 data/
 description/
 preregistration/
+out/
 
 .Rproj.user
