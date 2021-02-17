@@ -31,7 +31,7 @@ N <- marp_stan$n_countries # number of countries
 n_obs_per_country <- 100 # number of observations per country
 total_obs <- N * n_obs_per_country
 
-beta = rnorm(marp_stan$n_pars, mean = 0, sd = 5) # alpha and betas
+beta = rnorm(marp_stan$n_pars, mean = 0, sd = 1) # alpha and betas
 sigma = rexp(1, 1) # population error
 sigma_country = rexp(marp_stan$n_pars, 1)
 # Omega <- rethinking::rlkjcorr(n = 1, K = marp_stan$n_pars, eta = 2) # from McElreath's rethinking package
@@ -79,14 +79,13 @@ sim_dat_stan$n_obs = nrow(sim_dat)
 sim_dat_stan$n_countries = length(unique(sim_dat_stan$country))
 sim_dat_stan$n_pars = marp_stan$n_pars
 
-# 8 minutes and 155 divergent transitions in model with correlation
-# 2.5 minutes 357 272 divergent transitions in model with correlation
+# 7.5 minutes
 (t1 = Sys.time())
 sims_fit <- sampling(
   marp_model, 
   data = sim_dat_stan,
   chains = 4,
-  iter = 3000,
+  iter = 2000,
   cores = parallel::detectCores()
   )
 (t2= Sys.time())
@@ -170,6 +169,7 @@ fit_summary_slopes_intercepts = beta_p %>%
   bind_cols(
     fit_summary %>% 
       filter(!grepl("hyper", rowname)) %>% 
+      filter(!grepl("raw", rowname)) %>% 
       filter(substr(rowname, 1, 2) == "a_" | substr(rowname, 1, 2) == "b_") %>% 
       select(rowname, mean)
   )
@@ -203,23 +203,3 @@ fit_summary_slopes_intercepts %>%
 
 
 
-
-
-
-
-
-
-
-# fit <- stan(file = 'schools.stan', data = schools_dat)
-# 
-# marp_model_1 <- ulam(
-#   alist(
-#     wb_overall_mean ~ normal( mu , sigma ),
-#     mu <- a_cafe[cafe] + b_cafe[cafe]*afternoon,
-#     c(a_cafe, b_cafe)[cafe] ~ multi_normal( c(a,b) , Rho , sigma_cafe ),
-#     a ~ normal(5,2),
-#     b ~ normal(-1,0.5),
-#     sigma_cafe ~ exponential(1),
-#     sigma ~ exponential(1),
-#     Rho ~ lkj_corr(2)
-#   ) , data=d , chains=4 , cores=4 )

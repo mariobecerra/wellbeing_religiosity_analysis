@@ -23,13 +23,13 @@ data{
 
 parameters{
 
-  vector[n_countries] a_marp;
-  vector[n_countries] b_religiosity_index;
-  vector[n_countries] b_cnorm_1;
-  vector[n_countries] b_cnorm_2;
-  vector[n_countries] b_age;
-  vector[n_countries] b_ses;
-  vector[n_countries] b_education;
+  vector[n_countries] a_marp_raw;
+  vector[n_countries] b_religiosity_index_raw;
+  vector[n_countries] b_cnorm_1_raw;
+  vector[n_countries] b_cnorm_2_raw;
+  vector[n_countries] b_age_raw;
+  vector[n_countries] b_ses_raw;
+  vector[n_countries] b_education_raw;
   // vector[n_countries] b_gdp_scaled;
 
   real a_marp_hyperprior;
@@ -46,38 +46,47 @@ parameters{
   real<lower=0> sigma;
 }
 
+
+transformed parameters{
+  vector[n_countries] a_marp;
+  vector[n_countries] b_religiosity_index;
+  vector[n_countries] b_cnorm_1;
+  vector[n_countries] b_cnorm_2;
+  vector[n_countries] b_age;
+  vector[n_countries] b_ses;
+  vector[n_countries] b_education;
+  
+  a_marp = a_marp_hyperprior + a_marp_raw*sigma_country[1]; // Implies a_marp ~ normal(a_marp, sigma_country[1])
+  b_religiosity_index = b_religiosity_index_hyperprior + b_religiosity_index_raw*sigma_country[2]; // Implies b_religiosity_index ~ normal(b_religiosity_index, sigma_country[2])
+  b_cnorm_1 = b_cnorm_1_hyperprior + b_cnorm_1_raw*sigma_country[3]; // Implies b_cnorm_1 ~ normal(b_cnorm_1, sigma_country[3])
+  b_cnorm_2 = b_cnorm_2_hyperprior + b_cnorm_2_raw*sigma_country[4]; // Implies b_cnorm_2 ~ normal(b_cnorm_2, sigma_country[4])
+  b_age = b_age_hyperprior + b_age_raw*sigma_country[5]; // Implies b_age ~ normal(b_age, sigma_country[5])
+  b_ses = b_ses_hyperprior + b_ses_raw*sigma_country[6]; // Implies b_ses ~ normal(b_ses, sigma_country[6])
+  b_education = b_education_hyperprior + b_education_raw*sigma_country[7]; // Implies b_education ~ normal(b_education, sigma_country[7])
+}
+
 model{
   vector[n_obs] mu;
   sigma ~ exponential( 1 );
   sigma_country ~ exponential( 1 );
 
-  a_marp_hyperprior ~ normal(0, 5);
-  b_religiosity_index_hyperprior ~ normal(0, 5);
-  b_cnorm_1_hyperprior ~ normal(0, 5);
-  b_cnorm_2_hyperprior ~ normal(0, 5);
-  b_age_hyperprior ~ normal(0, 5);
-  b_ses_hyperprior ~ normal(0, 5);
-  b_education_hyperprior ~ normal(0, 5);
-  // b_gdp_scaled_hyperprior ~ normal(0, 5);
+  a_marp_hyperprior ~ std_normal();
+  b_religiosity_index_hyperprior ~ std_normal();
+  b_cnorm_1_hyperprior ~ std_normal();
+  b_cnorm_2_hyperprior ~ std_normal();
+  b_age_hyperprior ~ std_normal();
+  b_ses_hyperprior ~ std_normal();
+  b_education_hyperprior ~ std_normal();
+  // b_gdp_scaled_hyperprior ~ std_normal();
 
-  // for(j in 1:n_countries){
-  //   a_marp[j] ~ normal(a_marp_hyperprior, sigma_country);
-  //   b_religiosity_index[j] ~ normal(b_religiosity_index_hyperprior, sigma_country);
-  //   b_cnorm_1[j] ~ normal(b_cnorm_1_hyperprior, sigma_country);
-  //   b_cnorm_2[j] ~ normal(b_cnorm_2_hyperprior, sigma_country);
-  //   b_age[j] ~ normal(b_age_hyperprior, sigma_country);
-  //   b_ses[j] ~ normal(b_ses_hyperprior, sigma_country);
-  //   b_education[j] ~ normal(b_education_hyperprior, sigma_country);
-  // }
 
-  // Apparently both the for loop and this work (at least it compiled)
-  a_marp ~ normal(a_marp_hyperprior, sigma_country[1]);
-  b_religiosity_index ~ normal(b_religiosity_index_hyperprior, sigma_country[2]);
-  b_cnorm_1 ~ normal(b_cnorm_1_hyperprior, sigma_country[3]);
-  b_cnorm_2 ~ normal(b_cnorm_2_hyperprior, sigma_country[4]);
-  b_age ~ normal(b_age_hyperprior, sigma_country[5]);
-  b_ses ~ normal(b_ses_hyperprior, sigma_country[6]);
-  b_education ~ normal(b_education_hyperprior, sigma_country[7]);
+  a_marp_raw ~ std_normal();
+  b_religiosity_index_raw ~ std_normal();
+  b_cnorm_1_raw ~ std_normal();
+  b_cnorm_2_raw ~ std_normal();
+  b_age_raw ~ std_normal();
+  b_ses_raw ~ std_normal();
+  b_education_raw ~ std_normal();
 
   for(i in 1:n_obs){
       mu[i] = a_marp[country[i]] +
