@@ -2,7 +2,7 @@ library(tidyverse)
 library(here)
 library(rethinking)
 
-covariable_names = c("religiosity_index", "cnorm_1", "cnorm_2", "age", "ses", "education")
+covariable_names = c("religiosity_index", "cnorm_1", "cnorm_2", "age", "ses", "education", "genderman", "genderother")
 
 # Original data
 # Very few of these lines are actually used
@@ -14,7 +14,7 @@ marp_stan = as.list(marp)
 
 marp_stan$n_obs = nrow(marp)
 marp_stan$n_countries = length(unique(marp$country))
-marp_stan$n_pars = 7L
+marp_stan$n_pars = length(covariable_names) + 1
 
 
 ## Compile the model
@@ -39,18 +39,24 @@ Omega <- diag(rep(1.0, marp_stan$n_pars)) # Independent parameters
 Sigma <- diag(sigma_country) %*% Omega %*% diag(sigma_country)
 beta_p <- rmvnorm(N, mean = beta, sigma = Sigma)
 
-x <- matrix(
-  c(rep(1, N * n_obs_per_country), 
-    rnorm((marp_stan$n_pars-1) * N * n_obs_per_country, mean = 0, sd = 1)), 
-  ncol = marp_stan$n_pars)
 
-subject <- rep(1:N, each = n_obs_per_country)
+
+
 
 sim_dat = lapply(1:N, function(i){
   X = matrix(
     c(rep(1, n_obs_per_country), 
-    rnorm((marp_stan$n_pars-1) * n_obs_per_country, mean = 0, sd = 1)), 
-  ncol = marp_stan$n_pars)
+    rnorm((marp_stan$n_pars - 3) * n_obs_per_country, mean = 0, sd = 1)), 
+  ncol = marp_stan$n_pars - 2) %>% 
+    cbind(., 
+          model.matrix( ~ -1 + gender, 
+                        data = data.frame(gender = as.factor(sample.int(3, n_obs_per_country, 
+                                                                        replace = T)))) %>% 
+            as.data.frame() %>% 
+            select(1:2) %>% 
+            # set_names("genderman", "genderother") %>% 
+            as.matrix()
+    )
   
   mu_i = X %*% t(t(beta_p[i,]))
   
@@ -79,14 +85,17 @@ sim_dat_stan$n_obs = nrow(sim_dat)
 sim_dat_stan$n_countries = length(unique(sim_dat_stan$country))
 sim_dat_stan$n_pars = marp_stan$n_pars
 
-# 7.5 minutes
+
+
+
 (t1 = Sys.time())
 sims_fit <- sampling(
   marp_model, 
   data = sim_dat_stan,
   chains = 4,
   iter = 2000,
-  cores = parallel::detectCores()
+  cores = parallel::detectCores(),
+  control = list(max_treedepth = 15)
   )
 (t2= Sys.time())
 t2 - t1

@@ -12,6 +12,8 @@ data{
   real age[n_obs];
   real ses[n_obs];
   real education[n_obs];
+  int genderman[n_obs];
+  int genderother[n_obs];
 
   // real gdp_scaled[n_obs];
   // int gender[n_obs];
@@ -30,6 +32,8 @@ parameters{
   vector[n_countries] b_age_raw;
   vector[n_countries] b_ses_raw;
   vector[n_countries] b_education_raw;
+  vector[n_countries] b_genderman_raw;
+  vector[n_countries] b_genderother_raw;
   // vector[n_countries] b_gdp_scaled;
 
   real a_marp_hyperprior;
@@ -39,6 +43,8 @@ parameters{
   real b_age_hyperprior;
   real b_ses_hyperprior;
   real b_education_hyperprior;
+  real b_genderman_hyperprior;
+  real b_genderother_hyperprior;
   // real b_gdp_scaled_hyperprior;
 
   vector<lower=0>[n_pars] sigma_country;
@@ -55,6 +61,8 @@ transformed parameters{
   vector[n_countries] b_age;
   vector[n_countries] b_ses;
   vector[n_countries] b_education;
+  vector[n_countries] b_genderman;
+  vector[n_countries] b_genderother;
   
   a_marp = a_marp_hyperprior + a_marp_raw*sigma_country[1]; // Implies a_marp ~ normal(a_marp, sigma_country[1])
   b_religiosity_index = b_religiosity_index_hyperprior + b_religiosity_index_raw*sigma_country[2]; // Implies b_religiosity_index ~ normal(b_religiosity_index, sigma_country[2])
@@ -63,6 +71,8 @@ transformed parameters{
   b_age = b_age_hyperprior + b_age_raw*sigma_country[5]; // Implies b_age ~ normal(b_age, sigma_country[5])
   b_ses = b_ses_hyperprior + b_ses_raw*sigma_country[6]; // Implies b_ses ~ normal(b_ses, sigma_country[6])
   b_education = b_education_hyperprior + b_education_raw*sigma_country[7]; // Implies b_education ~ normal(b_education, sigma_country[7])
+  b_genderman = b_genderman_hyperprior + b_genderman_raw*sigma_country[8]; // Implies b_genderman ~ normal(b_genderman, sigma_country[8])
+  b_genderother = b_genderother_hyperprior + b_genderother_raw*sigma_country[9]; // Implies b_genderother ~ normal(b_genderother, sigma_country[9])
 }
 
 model{
@@ -77,6 +87,8 @@ model{
   b_age_hyperprior ~ std_normal();
   b_ses_hyperprior ~ std_normal();
   b_education_hyperprior ~ std_normal();
+  b_genderman_hyperprior ~ std_normal();
+  b_genderother_hyperprior ~ std_normal();
   // b_gdp_scaled_hyperprior ~ std_normal();
 
 
@@ -87,6 +99,8 @@ model{
   b_age_raw ~ std_normal();
   b_ses_raw ~ std_normal();
   b_education_raw ~ std_normal();
+  b_genderman_raw ~ std_normal();
+  b_genderother_raw ~ std_normal();
 
   for(i in 1:n_obs){
       mu[i] = a_marp[country[i]] +
@@ -95,7 +109,10 @@ model{
         b_cnorm_2[country[i]] * cnorm_2[i] +
         b_age[country[i]] * age[i] +
         b_ses[country[i]] * ses[i] +
-        b_education[country[i]] * education[i];
+        b_education[country[i]] * education[i] +
+        b_genderman[country[i]] * genderman[i] +
+        b_genderother[country[i]] * genderother[i]
+        ;
   }
 
   wb_overall_mean ~ normal( mu , sigma );
