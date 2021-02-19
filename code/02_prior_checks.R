@@ -2,13 +2,14 @@ library(tidyverse)
 library(here)
 library(rethinking)
 
-covariable_names = c("religiosity_index", "cnorm_1", "cnorm_2", "age", "ses", "education", "genderman", "genderother")
+covariable_names = c("religiosity_index", "cnorm_1", "cnorm_2", "age", "ses", "education", "genderman", "genderother", "denominationsome")
 
 # Original data
 # Very few of these lines are actually used
 marp = read.csv(
   here("out/marp_data_processed.csv"), 
-  stringsAsFactors = T) 
+  stringsAsFactors = F) %>% 
+  mutate(denomination = ifelse(denomination != "none", "some", denomination))
 
 marp_stan = as.list(marp)
 
@@ -46,8 +47,8 @@ beta_p <- rmvnorm(N, mean = beta, sigma = Sigma)
 sim_dat = lapply(1:N, function(i){
   X = matrix(
     c(rep(1, n_obs_per_country), 
-    rnorm((marp_stan$n_pars - 3) * n_obs_per_country, mean = 0, sd = 1)), 
-  ncol = marp_stan$n_pars - 2) %>% 
+    rnorm((marp_stan$n_pars - 4) * n_obs_per_country, mean = 0, sd = 1)), 
+  ncol = marp_stan$n_pars - 3) %>% 
     cbind(., 
           model.matrix( ~ -1 + gender, 
                         data = data.frame(gender = as.factor(sample.int(3, n_obs_per_country, 
@@ -55,6 +56,14 @@ sim_dat = lapply(1:N, function(i){
             as.data.frame() %>% 
             select(1:2) %>% 
             # set_names("genderman", "genderother") %>% 
+            as.matrix()
+    ) %>% 
+    cbind(., 
+          model.matrix( ~ -1 + denomination, 
+                        data = data.frame(denomination = as.factor(sample.int(2, n_obs_per_country, 
+                                                                        replace = T)))) %>% 
+            as.data.frame() %>% 
+            select(1) %>% 
             as.matrix()
     )
   
@@ -93,7 +102,8 @@ sims_fit <- sampling(
   marp_model, 
   data = sim_dat_stan,
   chains = 4,
-  iter = 2000,
+  # iter = 2000,
+  iter = 600,
   cores = parallel::detectCores(),
   control = list(max_treedepth = 15)
   )
@@ -165,22 +175,22 @@ fit_summary_sigmas %>%
 
 ### Slopes and intercepts
 
-fit_summary_slopes_intercepts = beta_p %>% 
-  as_tibble() %>% 
-  set_names(c("intercept", covariable_names)) %>% 
-  mutate(country = 1:nrow(.)) %>% 
-  pivot_longer(cols = -country, names_to = "parameter", values_to = "real_value") %>% 
-  group_by(country) %>% 
-  mutate(id = 1:n()) %>% 
-  ungroup() %>% 
-  arrange(id, country) %>% 
-  select(-id) %>% 
+fit_summary_slopes_intercepts = fit_summary %>% 
+  filter(!grepl("hyper", rowname)) %>% 
+  filter(!grepl("raw", rowname)) %>% 
+  filter(substr(rowname, 1, 2) == "a_" | substr(rowname, 1, 2) == "b_") %>% 
+  select(rowname, mean) %>% 
   bind_cols(
-    fit_summary %>% 
-      filter(!grepl("hyper", rowname)) %>% 
-      filter(!grepl("raw", rowname)) %>% 
-      filter(substr(rowname, 1, 2) == "a_" | substr(rowname, 1, 2) == "b_") %>% 
-      select(rowname, mean)
+    beta_p %>% 
+      as_tibble() %>% 
+      set_names(c("intercept", covariable_names)) %>% 
+      mutate(country = 1:nrow(.)) %>% 
+      pivot_longer(cols = -country, names_to = "parameter", values_to = "real_value") %>% 
+      group_by(country) %>% 
+      mutate(id = 1:n()) %>% 
+      ungroup() %>% 
+      arrange(id, country) %>% 
+      select(-id)
   )
 
 fit_summary_slopes_intercepts
@@ -192,7 +202,7 @@ fit_summary_slopes_intercepts %>%
   ggplot() +
   geom_point(aes(x = parameter, y = value, color = name),
              position = position_dodge2(w = 0.5)) +
-  facet_wrap(~country) +
+  facet_wrap(~country, ncol = 4) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   theme_bw() +
   scale_color_manual(values = c("red", "blue")) +
@@ -204,10 +214,53 @@ fit_summary_slopes_intercepts %>%
   mutate(error = real_value - mean) %>% 
   ggplot() +
   geom_point(aes(x = parameter, y = error)) +
-  facet_wrap(~country) +
+  facet_wrap(~country, ncol = 4) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
+
+
+
+### Predictions
+
+fit_summary_y_rep = fit_summary %>% 
+  filter(substr(rowname, 1, 5) == "y_rep") %>% 
+  bind_cols(
+    sim_dat %>% 
+      select(country, wb_overall_mean)
+  )
+
+
+fit_summary_y_rep %>% 
+  ggplot() +
+  geom_point(aes(wb_overall_mean, mean)) +
+  facet_wrap(~country, ncol = 4) +
+  geom_abline(slope = 1, linetype = "dashed") +
+  theme_bw() +
+  xlab("Real") +
+  ylab("Predicted") +
+  ggtitle("Real vs. predicted values") 
+
+
+
+
+
+fit_summary_y_rep %>% 
+  ggplot(aes(x = wb_overall_mean, y = mean)) +
+  geom_abline(slope = 1, linetype = "dashed", size = 0.4) +
+  geom_errorbar(aes(ymin = X25., ymax = X75.), size = 0.4) +
+  geom_errorbar(aes(ymin = X2.5., ymax = X97.5.), size = 0.2) +
+  facet_wrap(~country, ncol = 4) +
+  theme_bw() +
+  xlab("Real") +
+  ylab("Predicted") +
+  ggtitle("Real vs. predicted values") 
+
+
+
+
 
 
 

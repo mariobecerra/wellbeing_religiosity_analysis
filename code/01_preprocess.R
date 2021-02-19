@@ -1,4 +1,5 @@
 library(tidyverse)
+library(janitor)
 library(here)
 
 marp = read_csv(here("data/MARP_data.csv"))
@@ -26,6 +27,34 @@ marp2 = marp %>%
     age = (age - mean(age))/sd(age),
     ses = (ses - mean(ses))/sd(ses),
     education = (education - mean(education)/sd(education))
-  )  
+  ) 
 
-write_csv(marp2, here("out/marp_data_processed.csv"))
+
+denomination_names = tibble(denomination = unique(marp2$denomination)) %>% 
+  mutate(denomination_new = make_clean_names(denomination))
+
+
+sample_type_names = tibble(sample_type = unique(marp2$sample_type)) %>% 
+  mutate(sample_type_new = make_clean_names(sample_type))
+
+
+compensation_names = tibble(compensation = unique(marp2$compensation)) %>% 
+  mutate(compensation_new = make_clean_names(compensation))
+
+
+marp3 = marp2 %>% 
+  left_join(denomination_names) %>% 
+  left_join(sample_type_names) %>% 
+  left_join(compensation_names) %>% 
+  select(-denomination,
+         -sample_type,
+         -compensation) %>% 
+    rename(denomination = denomination_new,
+           sample_type = sample_type_new,
+           compensation = compensation_new)
+
+write_csv(marp3, here("out/marp_data_processed.csv"))
+
+
+
+

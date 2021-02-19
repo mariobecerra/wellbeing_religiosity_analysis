@@ -14,6 +14,7 @@ data{
   real education[n_obs];
   int genderman[n_obs];
   int genderother[n_obs];
+  int denominationsome[n_obs];
 
   // real gdp_scaled[n_obs];
   // int gender[n_obs];
@@ -34,6 +35,7 @@ parameters{
   vector[n_countries] b_education_raw;
   vector[n_countries] b_genderman_raw;
   vector[n_countries] b_genderother_raw;
+  vector[n_countries] b_denominationsome_raw;
   // vector[n_countries] b_gdp_scaled;
 
   real a_marp_hyperprior;
@@ -45,6 +47,7 @@ parameters{
   real b_education_hyperprior;
   real b_genderman_hyperprior;
   real b_genderother_hyperprior;
+  real b_denominationsome_hyperprior;
   // real b_gdp_scaled_hyperprior;
 
   vector<lower=0>[n_pars] sigma_country;
@@ -63,6 +66,7 @@ transformed parameters{
   vector[n_countries] b_education;
   vector[n_countries] b_genderman;
   vector[n_countries] b_genderother;
+  vector[n_countries] b_denominationsome;
   
   a_marp = a_marp_hyperprior + a_marp_raw*sigma_country[1]; // Implies a_marp ~ normal(a_marp, sigma_country[1])
   b_religiosity_index = b_religiosity_index_hyperprior + b_religiosity_index_raw*sigma_country[2]; // Implies b_religiosity_index ~ normal(b_religiosity_index, sigma_country[2])
@@ -73,6 +77,7 @@ transformed parameters{
   b_education = b_education_hyperprior + b_education_raw*sigma_country[7]; // Implies b_education ~ normal(b_education, sigma_country[7])
   b_genderman = b_genderman_hyperprior + b_genderman_raw*sigma_country[8]; // Implies b_genderman ~ normal(b_genderman, sigma_country[8])
   b_genderother = b_genderother_hyperprior + b_genderother_raw*sigma_country[9]; // Implies b_genderother ~ normal(b_genderother, sigma_country[9])
+  b_denominationsome = b_denominationsome_hyperprior + b_denominationsome_raw*sigma_country[10]; // Implies b_denominationsome ~ normal(b_denominationsome, sigma_country[9])
 }
 
 model{
@@ -89,6 +94,7 @@ model{
   b_education_hyperprior ~ std_normal();
   b_genderman_hyperprior ~ std_normal();
   b_genderother_hyperprior ~ std_normal();
+  b_denominationsome_hyperprior ~ std_normal();
   // b_gdp_scaled_hyperprior ~ std_normal();
 
 
@@ -101,6 +107,7 @@ model{
   b_education_raw ~ std_normal();
   b_genderman_raw ~ std_normal();
   b_genderother_raw ~ std_normal();
+  b_denominationsome_raw ~ std_normal();
 
   for(i in 1:n_obs){
       mu[i] = a_marp[country[i]] +
@@ -111,7 +118,8 @@ model{
         b_ses[country[i]] * ses[i] +
         b_education[country[i]] * education[i] +
         b_genderman[country[i]] * genderman[i] +
-        b_genderother[country[i]] * genderother[i]
+        b_genderother[country[i]] * genderother[i] +
+        b_denominationsome[country[i]] * denominationsome[i]
         ;
   }
 
@@ -119,6 +127,31 @@ model{
 
 }
 
+
+generated quantities {
+
+  vector[n_obs] y_rep; // replications from posterior predictive distribution
+
+  for (i in 1:n_obs) {
+    real mu_i = a_marp[country[i]] +
+        b_religiosity_index[country[i]] * religiosity_index[i] +
+        b_cnorm_1[country[i]] * cnorm_1[i] +
+        b_cnorm_2[country[i]] * cnorm_2[i] +
+        b_age[country[i]] * age[i] +
+        b_ses[country[i]] * ses[i] +
+        b_education[country[i]] * education[i] +
+        b_genderman[country[i]] * genderman[i] +
+        b_genderother[country[i]] * genderother[i] +
+        b_denominationsome[country[i]] * denominationsome[i]
+        ;
+
+
+    // generate replication values
+    y_rep[i] = normal_rng(mu_i, sigma);
+    // normal_rng generates random numbers from a normal distribution
+  }
+  
+}
 
 
 
