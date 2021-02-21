@@ -1,4 +1,5 @@
 library(tidyverse)
+library(rstan)
 library(here)
 
 covariable_names = c("religiosity_index", "cnorm_1", "cnorm_2", "age", "ses", "education", "genderman", "genderother", "denominationsome")

@@ -1,7 +1,7 @@
 library(tidyverse)
-library(tidybayes)
 library(stringr)
 library(magrittr)
+library(rstan)
 library(here)
 
 marp = read.csv(
@@ -16,7 +16,7 @@ country_int_mapping =  marp %>%
   distinct()
 
 
-marp_fit = readRDS(here(paste0("out/marp_fit_", n_iter, "_iter.rds")))
+marp_fit = readRDS(here(paste0("out/marp_fit_3000_iter.rds")))
 
 
 
