@@ -2,12 +2,11 @@ library(tidyverse)
 library(rstan)
 library(here)
 
-covariable_names = c("religiosity_index", "cnorm_1", "cnorm_2", "age", "ses", "education", "genderman", "genderother", "denominationsome")
+covariable_names = c("religiosity_index", "cnorm_1", "cnorm_2", "age", "ses", "education", "genderman", "genderother", "denominationafrican_religions", "denominationbuddhist", "denominationchristian", "denominationchristian_orthodox_russian_greek_etc", "denominationchristian_protestant", "denominationchristian_roman_catholic", "denominationdruze", "denominationevangelical", "denominationhindu", "denominationjain", "denominationjewish", "denominationmuslim", "denominationmuslim_alevi", "denominationmuslim_azhari", "denominationmuslim_non_sectarian", "denominationmuslim_sunni", "denominationother", "denominationshinto")
 
 marp = read.csv(
   here("out/marp_data_processed.csv"), 
-  stringsAsFactors = F) %>% 
-  mutate(denomination = ifelse(denomination != "none", "some", denomination))
+  stringsAsFactors = F)
 
 marp_stan = marp %>% 
   mutate(country = as.integer(as.factor(country))) %>% 
@@ -57,6 +56,17 @@ marp_fit <- sampling(
 )
 (t2= Sys.time())
 t2 - t1
+
+# Warning messages:
+# 1: There were 213 divergent transitions after warmup. See
+# http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+# to find out why this is a problem and how to eliminate them. 
+# 2: Examine the pairs() plot to diagnose sampling problems
+#  
+# > (t2= Sys.time())
+# [1] "2021-02-22 06:26:09 CET"
+# > t2 - t1
+# Time difference of 5.909909 hours
 
 saveRDS(marp_fit, here(paste0("out/marp_fit_", n_iter, "_iter.rds")))
 

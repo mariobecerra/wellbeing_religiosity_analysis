@@ -1,15 +1,14 @@
 library(tidyverse)
+library(mvtnorm)
+library(rstan)
 library(here)
-library(rethinking)
 
-covariable_names = c("religiosity_index", "cnorm_1", "cnorm_2", "age", "ses", "education", "genderman", "genderother", "denominationsome")
+covariable_names = c("religiosity_index", "cnorm_1", "cnorm_2", "age", "ses", "education", "genderman", "genderother", "denominationafrican_religions", "denominationbuddhist", "denominationchristian", "denominationchristian_orthodox_russian_greek_etc", "denominationchristian_protestant", "denominationchristian_roman_catholic", "denominationdruze", "denominationevangelical", "denominationhindu", "denominationjain", "denominationjewish", "denominationmuslim", "denominationmuslim_alevi", "denominationmuslim_azhari", "denominationmuslim_non_sectarian", "denominationmuslim_sunni", "denominationother", "denominationshinto")
 
 # Original data
-# Very few of these lines are actually used
 marp = read.csv(
   here("out/marp_data_processed.csv"), 
-  stringsAsFactors = F) %>% 
-  mutate(denomination = ifelse(denomination != "none", "some", denomination))
+  stringsAsFactors = F) 
 
 marp_stan = as.list(marp)
 
@@ -47,8 +46,8 @@ beta_p <- rmvnorm(N, mean = beta, sigma = Sigma)
 sim_dat = lapply(1:N, function(i){
   X = matrix(
     c(rep(1, n_obs_per_country), 
-    rnorm((marp_stan$n_pars - 4) * n_obs_per_country, mean = 0, sd = 1)), 
-  ncol = marp_stan$n_pars - 3) %>% 
+    rnorm((6) * n_obs_per_country, mean = 0, sd = 1)), 
+  ncol = 7) %>% 
     cbind(., 
           model.matrix( ~ -1 + gender, 
                         data = data.frame(gender = as.factor(sample.int(3, n_obs_per_country, 
@@ -60,10 +59,10 @@ sim_dat = lapply(1:N, function(i){
     ) %>% 
     cbind(., 
           model.matrix( ~ -1 + denomination, 
-                        data = data.frame(denomination = as.factor(sample.int(2, n_obs_per_country, 
+                        data = data.frame(denomination = as.factor(sample.int(19, n_obs_per_country, 
                                                                         replace = T)))) %>% 
             as.data.frame() %>% 
-            select(1) %>% 
+            select(-1) %>% 
             as.matrix()
     )
   
@@ -98,6 +97,7 @@ sim_dat_stan$n_pars = marp_stan$n_pars
 
 
 (t1 = Sys.time())
+# 20 minutes
 sims_fit <- sampling(
   marp_model, 
   data = sim_dat_stan,

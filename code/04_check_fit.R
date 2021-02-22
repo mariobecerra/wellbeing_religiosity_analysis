@@ -77,6 +77,21 @@ fit_summary_y_rep %>%
 
 
 
+fit_summary_y_rep %>% 
+  ggplot(aes(x = wb_overall_mean, y = mean)) +
+  geom_abline(slope = 1, linetype = "dashed", size = 0.4) +
+  geom_errorbar(aes(ymin = X25., ymax = X75.), size = 0.4) +
+  geom_errorbar(aes(ymin = X2.5., ymax = X97.5.), size = 0.2) +
+  facet_wrap(~country, ncol = 8) +
+  theme_bw() +
+  xlab("Real") +
+  ylab("Predicted") +
+  ggtitle("Real vs. predicted values") + 
+  coord_equal()
+
+
+
+
 
 
 y_rep_tibble = rstan::extract(
