@@ -216,18 +216,20 @@ fit_summary_slopes_intercepts %>%
   geom_linerange(aes(ymin = X25., ymax = X75.), size = 0.9) +
   geom_linerange(aes(ymin = X2.5., ymax = X97.5.), size = 0.4) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.position = "bottom") +
   ggtitle("Intercepts and slopes") 
   
 
 fit_summary_slopes_intercepts %>% 
-  ggplot(aes(x = country, y = mean)) +
+  ggplot(aes(x = country, y = mean, color = parameter)) +
   geom_point(size = 1) +
   geom_linerange(aes(ymin = X25., ymax = X75.), size = 0.8) +
   geom_linerange(aes(ymin = X2.5., ymax = X97.5.), size = 0.2) +
-  facet_wrap(~parameter, scales = "free_x", ncol = 5) +
+  facet_wrap(~parameter, scales = "free_x", ncol = 7) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.position = "none") +
   coord_flip() +
   ggtitle("Intercepts and slopes") 
 
