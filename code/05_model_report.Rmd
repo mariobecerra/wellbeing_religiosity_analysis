@@ -1,0 +1,362 @@
+---
+title: "Check model fit"
+date: "March 2021"
+output:
+  html_document:
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+This document briefly explains our work using the dataset provided.
+
+```{r setup, warning = F, error = F, message = F}
+library(tidyverse)
+library(stringr)
+library(magrittr)
+library(rstan)
+library(here)
+
+knitr::opts_chunk$set(cache = T, fig.height = 8, fig.width = 11)
+
+```
+
+# Preprocessing of the data
+
+The file `01_preprocess.R` preprocesses the original MARP data and saves it into a new csv file. The script centers continuous variables by subtracting the age and dividing by the standard deviation. It also filters rows with NA, and subjects that didn't pass the attention check. It also cleans the denomination_names, sample_type_names, and compensation_names variables. This leaves a processed dataset with 10,170 observations.
+
+# Prior checks
+
+The file `02_prior_checks.R` creates a fake dataset with the assumptions from the model and then fits the model using Stan. This step helps find possible errors in the model code and see if the model recovers the parameters from the simulated data.
+
+# Model
+
+We used a Bayesian hierarchical/multilevel model which was fitted using Stan. Each observation $y_i$ was modeled as
+
+$$
+  y_i \sim N(\mu_i, \sigma)
+$$
+
+with $i \in \{1, ..., 10170 \}$ and 
+
+$$
+  \mu_i = \beta_{country[i]}^{(0)} + \beta_{country[i]}^{(1)} x_i^{(1)} + ... + \beta_{country[i]}^{(26)} x_i^{(26)}.
+$$
+
+That is, $\mu_i  \sum_{k = 0}^{26} \beta_{country[i]}^{(k)} x_i^{(k)}$ with $x_i^{(0)} = 1$. Here, $country[i]$ denotes the country in which the $i$-th person lives. There are $24$ countries in the processed dataset. This means that there is an intercept and 26 slope parameters for each country in the dataset. Each $x_i^{(k)}$ denotes a covariate. These will be explained further down in this document.
+
+Each parameter has a prior distribution such that
+
+$$
+  \beta_{j}^{(k)} \sim N(\beta^{(k)}, \sigma_j)
+$$
+for $j \in \{1, ..., 24 \}$ and $k \in \{1, ..., 26\}$. Additionally, each has a hyperprior distribution such that
+
+$$
+  \beta_{j}^{(k)} \sim N(0, 1).
+$$
+
+The covariates used were:
+
+```
+religiosity_index
+cnorm_1
+cnorm_2
+age
+ses
+education
+genderman
+genderother
+denominationafrican_religions
+denominationbuddhist
+denominationchristian
+denominationchristian_orthodox_russian_greek_etc
+denominationchristian_protestant
+denominationchristian_roman_catholic
+denominationdruze
+denominationevangelical
+denominationhindu
+denominationjain
+denominationjewish
+denominationmuslim
+denominationmuslim_alevi
+denominationmuslim_azhari
+denominationmuslim_non_sectarian
+denominationmuslim_sunni
+denominationother
+denominationshinto
+```
+
+The variables `genderman` and `genderother` are binary variables whose values are both 0 if the person surveyed identified as a woman. The variable `genderman` would be 1 and `genderother` 0 if the surveyed person identified as a man; and similarly if the person identified as other gender. This means that `woman` was taken as the base level in this categorical variable.
+
+In a similar fashion, the variables starting with `denomination` use the value of no denomination as a base value.
+
+The Stan code that implements the model can be shown here in the following snippet. Here, `a_marp` denotes the intercepts $\beta_{country[i]}^{(0)}$, and the rest of the parameters start with `b_`.
+
+```{r}
+cat(readLines(here("code/model.stan")), sep = '\n')
+```
+
+# Model fit
+
+The model fit of our model is not good. It doesn't make good predictions, and it cannot replicate the original dataset, especially because of the skewness in the data. We believe this should be incorporated in the model, perhaps with a gamma regression.
+
+```{r}
+
+
+marp = read.csv(
+  here("out/marp_data_processed.csv"), 
+  stringsAsFactors = F) %>% 
+  mutate(denomination = ifelse(denomination != "none", "some", denomination)) %>% 
+  as_tibble()
+
+country_int_mapping =  marp %>% 
+  select(country) %>% 
+  mutate(country_int = as.integer(as.factor(country))) %>% 
+  distinct()
+
+
+marp_fit = readRDS(here(paste0("out/marp_fit_3000_iter.rds")))
+
+
+fit_summary = summary(marp_fit)$summary %>% 
+  as.data.frame() %>% 
+  rownames_to_column() %>% 
+  as_tibble() %>% 
+  set_names(make.names(names(.)))
+
+
+
+```
+
+
+### Predictions
+
+```{r}
+fit_summary_y_rep = fit_summary %>% 
+  filter(substr(rowname, 1, 5) == "y_rep") %>% 
+  bind_cols(
+    marp %>% 
+      select(country, wb_overall_mean)
+  )
+```
+
+Point predictions:
+```{r}
+
+fit_summary_y_rep %>% 
+  ggplot() +
+  geom_point(aes(wb_overall_mean, mean), size = 0.7) +
+  facet_wrap(~country, ncol = 4) +
+  geom_abline(slope = 1, linetype = "dashed") +
+  theme_bw() +
+  xlab("Real") +
+  ylab("Predicted") +
+  ggtitle("Real vs. predicted values") 
+
+```
+
+
+Posterior predictive intervals with 50\% and 95\% probability:
+
+```{r, fig.height=8}
+
+fit_summary_y_rep %>% 
+  ggplot(aes(x = wb_overall_mean, y = mean)) +
+  geom_abline(slope = 1, linetype = "dashed", size = 0.4) +
+  geom_errorbar(aes(ymin = X25., ymax = X75.), size = 0.4) +
+  geom_errorbar(aes(ymin = X2.5., ymax = X97.5.), size = 0.2) +
+  facet_wrap(~country, ncol = 4) +
+  theme_bw() +
+  xlab("Real") +
+  ylab("Predicted") +
+  ggtitle("Real vs. predicted values") 
+
+```
+
+Simulated datasets (grey) vs observed data. The real data is a little skewed, while out model asssumes normality (hence no skew):
+
+```{r, fig.height = 5}
+y_rep_tibble = rstan::extract(
+  marp_fit,
+  pars =  fit_summary %>% 
+    filter(grepl("y_rep", rowname)) %>% pull(rowname)) %>% 
+  as.data.frame() %>% 
+  as_tibble() %>% 
+  set_names(1:ncol(.)) %>% 
+  mutate(iter = 1:nrow(.)) %>% 
+  sample_n(1000) %>%  # Sample 1000 of the 6000 simulations
+  pivot_longer(cols = 1:(ncol(.)-1), names_to = "obs") %>% 
+  mutate(obs = as.integer(obs)) %>% 
+  left_join(
+    tibble(country = marp$country) %>% 
+      mutate(obs = 1:nrow(.))
+  )
+
+y_rep_tibble %>% 
+  ggplot() + 
+  geom_density(aes(x = value, group = iter),
+               size = 0.1, color = "dark grey") +
+  theme_bw() +
+  geom_density(data = marp, aes(x = wb_overall_mean), size = 1, color = "black")
+  
+```
+
+
+Same plot as before, but by country:
+```{r}
+
+y_rep_tibble %>% 
+  filter(iter %in% sample(unique(y_rep_tibble$iter), 100)) %>% # Use only 100 simulations
+  ggplot() + 
+  geom_density(aes(x = value, group = iter),
+               size = 0.3, color = "dark grey") +
+  theme_bw() +
+  geom_density(data = marp, aes(x = wb_overall_mean), size = 1, color = "black") +
+  facet_wrap(~country, ncol = 6)
+
+```
+
+### Test statistics
+
+The next plots show that the model is good at capturing the mean of the data, but not its median and standard deviation.
+
+```{r}
+
+test_statictics = y_rep_tibble %>% 
+  group_by(country, iter) %>% 
+  summarize(
+    mean_value = mean(value),
+    median_value = median(value),
+    sd_value = sd(value)
+    ) 
+
+
+test_statictics %>% 
+  ggplot() + 
+  geom_histogram(aes(x = mean_value), fill = "grey") +
+  theme_bw() +
+  facet_wrap(~country, ncol = 6, scales = "free") +
+  geom_vline(
+    aes(xintercept = mean),
+    data = marp %>% group_by(country) %>% summarize(mean = mean(wb_overall_mean))) +
+  ggtitle("Test statistics for mean")
+
+
+
+test_statictics %>% 
+  ggplot() + 
+  geom_histogram(aes(x = sd_value), fill = "grey") +
+  theme_bw() +
+  facet_wrap(~country, ncol = 6, scales = "free") +
+  geom_vline(
+    aes(xintercept = value),
+    data = marp %>% group_by(country) %>% summarize(value = sd(wb_overall_mean))) +
+  ggtitle("Test statistics for SD")
+
+
+
+
+test_statictics %>% 
+  ggplot() + 
+  geom_histogram(aes(x = median_value), fill = "grey") +
+  theme_bw() +
+  facet_wrap(~country, ncol = 6, scales = "free") +
+  geom_vline(
+    aes(xintercept = value),
+    data = marp %>% group_by(country) %>% summarize(value = median(wb_overall_mean))) +
+  ggtitle("Test statistics for median")
+
+
+```
+
+
+### Posterior distributions of slopes and intercepts
+
+These plots show the posterior 95\% probability intervals of each of the main parameters in the model.
+
+```{r, fig.width=10}
+fit_summary_slopes_intercepts = fit_summary %>% 
+  filter(!grepl("hyper", rowname)) %>% 
+  filter(!grepl("raw", rowname)) %>% 
+  filter(substr(rowname, 1, 2) == "a_" | substr(rowname, 1, 2) == "b_") %>% 
+  separate(col = rowname, sep = "\\[", into = c("parameter", "country_int")) %>% 
+  mutate(country_int = as.integer(str_extract(country_int, "[0-9]+"))) %>% 
+  left_join(country_int_mapping) 
+
+
+
+fit_summary_slopes_intercepts %>% 
+  mutate(parameter_country = paste(parameter, country)) %>% 
+  ggplot(aes(x = parameter_country, y = mean, color = parameter)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_point(size = 0.7) +
+  geom_linerange(aes(ymin = X25., ymax = X75.), size = 0.9) +
+  geom_linerange(aes(ymin = X2.5., ymax = X97.5.), size = 0.4) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.position = "bottom") +
+  ggtitle("Intercepts and slopes") 
+  
+
+fit_summary_slopes_intercepts %>% 
+  ggplot(aes(x = country, y = mean, color = parameter)) +
+  geom_point(size = 1) +
+  geom_linerange(aes(ymin = X25., ymax = X75.), size = 0.8) +
+  geom_linerange(aes(ymin = X2.5., ymax = X97.5.), size = 0.2) +
+  facet_wrap(~parameter, scales = "free_x", ncol = 7) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.position = "none") +
+  coord_flip() +
+  ggtitle("Intercepts and slopes") 
+
+```
+
+
+
+
+
+### Posterior distributions of hyperparameters
+
+```{r, fig.width=10}
+
+fit_summary_hyperpriors = fit_summary %>% 
+  filter(grepl("hyper", rowname)) %>% 
+  select(rowname, mean, X2.5., X25., X75., X97.5., sd) 
+
+
+rstan::extract(
+  marp_fit,
+  pars =  fit_summary %>% 
+    filter(grepl("hyper", rowname)) %>% pull(rowname)) %>% 
+  as.data.frame() %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = 1:ncol(.)) %>% 
+  ggplot() +
+  geom_histogram(aes(value)) +
+  facet_wrap(~name, scales = "free") +
+  theme_bw()
+
+```
+
+
+
+### Posterior distributions of sigma parameters
+
+```{r, fig.width=10}
+
+rstan::extract(
+  marp_fit,
+  pars =  fit_summary %>% 
+    filter(grepl("sigma", rowname)) %>% pull(rowname)) %>% 
+  as.data.frame() %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = 1:ncol(.)) %>% 
+  ggplot() +
+  geom_histogram(aes(value)) +
+  facet_wrap(~name, scales = "free") +
+  theme_bw()
+
+```
+
