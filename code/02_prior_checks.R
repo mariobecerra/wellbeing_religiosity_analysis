@@ -1,3 +1,4 @@
+# Creates a fake dataset with the assumptions from the model and then fits the model using Stan. This step helps find possible errors in the model code and see if the model recovers the parameters from the simulated data.
 library(tidyverse)
 library(mvtnorm)
 library(rstan)

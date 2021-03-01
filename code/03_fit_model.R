@@ -1,3 +1,4 @@
+# This script fits the model with Stan and saved the Stan object in an RDS file.
 library(tidyverse)
 library(rstan)
 library(here)

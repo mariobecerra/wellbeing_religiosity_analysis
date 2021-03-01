@@ -1,3 +1,5 @@
+# Preprocess the original MARP data and save it into a new csv file.
+# The script centers continuous variables by subtracting the age and dividing by the standard deviation. It also filters rows with NA, and subjects that didn't pass the attention check. It also cleans the denomination_names, sample_type_names, and compensation_names variables.
 library(tidyverse)
 library(janitor)
 library(here)
