@@ -4,6 +4,8 @@ description/
 preregistration/
 out/
 *.html
+*_cache
+*_files
 
 .Rproj.user
 .Rhistory
