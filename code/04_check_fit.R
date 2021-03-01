@@ -133,6 +133,58 @@ y_rep_tibble %>%
 
 
 
+test_statictics = y_rep_tibble %>% 
+  group_by(country, iter) %>% 
+  summarize(
+    mean_value = mean(value),
+    median_value = median(value),
+    sd_value = sd(value)
+    ) 
+
+
+test_statictics %>% 
+  ggplot() + 
+  geom_histogram(aes(x = mean_value), fill = "grey") +
+  theme_bw() +
+  facet_wrap(~country, ncol = 6, scales = "free") +
+  geom_vline(
+    aes(xintercept = mean),
+    data = marp %>% group_by(country) %>% summarize(mean = mean(wb_overall_mean))) +
+  ggtitle("Test statistics for mean")
+
+
+
+test_statictics %>% 
+  ggplot() + 
+  geom_histogram(aes(x = sd_value), fill = "grey") +
+  theme_bw() +
+  facet_wrap(~country, ncol = 6, scales = "free") +
+  geom_vline(
+    aes(xintercept = value),
+    data = marp %>% group_by(country) %>% summarize(value = sd(wb_overall_mean))) +
+  ggtitle("Test statistics for SD")
+
+
+
+
+test_statictics %>% 
+  ggplot() + 
+  geom_histogram(aes(x = median_value), fill = "grey") +
+  theme_bw() +
+  facet_wrap(~country, ncol = 6, scales = "free") +
+  geom_vline(
+    aes(xintercept = value),
+    data = marp %>% group_by(country) %>% summarize(value = median(wb_overall_mean))) +
+  ggtitle("Test statistics for median")
+
+
+
+
+
+
+
+
+
 ### Hyperpriors
 
 fit_summary_hyperpriors = fit_summary %>% 
