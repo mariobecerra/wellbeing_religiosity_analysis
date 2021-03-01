@@ -24,7 +24,7 @@ marp_model <- stan_model(file = here("code/model.stan"), verbose = TRUE)
 
 
 ## Prior simulation
-# Inspire by https://willhipson.netlify.app/post/stan-random-slopes/varying_effects_stan/
+# Inspired by https://willhipson.netlify.app/post/stan-random-slopes/varying_effects_stan/
 set.seed(2021)
 
 N <- marp_stan$n_countries # number of countries
