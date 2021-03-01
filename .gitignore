@@ -3,6 +3,7 @@ data/
 description/
 preregistration/
 out/
+*.html
 
 .Rproj.user
 .Rhistory
